@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pyWinAppDriver"
+version = "0.0.1"
+authors = [
+  { name="osmtk", email="shungiku@x06.org" },
+]
+description = "WinAppDriver server in Python"
+readme = "README.md"
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "pywinauto",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/osmtk/pyWinAppDriver"
+"Bug Tracker" = "https://github.com/osmtk/pyWinAppDriver/issues"
