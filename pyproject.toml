@@ -20,6 +20,16 @@ dependencies = [
     "fastapi",
     "uvicorn[standard]",
     "pywinauto",
+    "lxml",
+]
+[project.optional-dependencies]
+dev = [
+    "tox",
+    "pytest",
+]
+appium = [
+    "Appium-Python-Client<2.0",
+    "urllib3<2.0",
 ]
 
 [project.urls]
