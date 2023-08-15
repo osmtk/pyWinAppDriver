@@ -1,22 +1,10 @@
 import uvicorn
 from fastapi import FastAPI
 
-from pyWinAppDriver.session import router as session_router
+from pyWinAppDriver.root import router as root_router
 
 app = FastAPI()
-
-
-@app.get("/status")
-def status():
-    raise Exception
-
-
-app.include_router(session_router, prefix="/session")
-
-
-@app.get("/sessions")
-def sessions():
-    raise Exception
+app.include_router(root_router)
 
 
 if __name__ == "__main__":

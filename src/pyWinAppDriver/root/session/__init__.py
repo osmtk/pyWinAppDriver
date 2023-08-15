@@ -5,7 +5,7 @@ from typing import List, Optional
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from pyWinAppDriver.session.session_id import router as rt
+from pyWinAppDriver.root.session.session_id import router as session_id_router
 from pyWinAppDriver.var import Variable
 
 from pywinauto.controls.uiawrapper import UIAWrapper
@@ -33,7 +33,7 @@ class Session(BaseModel):
 
 
 router = APIRouter()
-router.include_router(rt, prefix="/{session_id}")
+router.include_router(session_id_router, prefix="/{session_id}")
 
 
 @router.post("")
