@@ -1,12 +1,36 @@
 from lxml import etree
 from pywinauto.controls.uia_controls import UIAElementInfo
 from pywinauto.controls.uiawrapper import UIAWrapper
-from pyWinAppDriver.constant import (
-    ORIENTATION_TYPE,
-    WINDOW_INTERACTION_STATE,
-    WINDOW_VISUAL_STATE,
-)
 from pywinauto.uia_defines import NoPatternInterfaceError
+
+ORIENTATION_TYPE = {
+    0: "None",
+    1: "Horizontal",
+    2: "Vertical",
+}
+
+WINDOW_INTERACTION_STATE = {
+    0: "Running",
+    1: "Closing",
+    2: "ReadyForUserInteraction",
+    3: "BlockedByModalWindow",
+    4: "NotResponding",
+}
+
+WINDOW_VISUAL_STATE = {
+    0: "Normal",
+    1: "Maximized",
+    2: "Minimized",
+}
+
+
+def xml_escape(text: str) -> str:
+    text = text.replace("&", "&amp;")
+    text = text.replace("<", "&lt;")
+    text = text.replace(">", "&gt;")
+    text = text.replace('"', "&quot;")
+    text = text.replace("'", "&apos;")
+    return text
 
 
 def get_page_source(hwnd: int):
@@ -156,7 +180,7 @@ def get_page_source(hwnd: int):
         nonlocal xml_string
         xml_string += f'<{control_type} '
         for attr, val in attributes.items():
-            xml_string += f'{attr}="{val}" '
+            xml_string += f'{attr}="{xml_escape(str(val))}" '
         if ctrl.children():
             xml_string += '>'
             for child in ctrl.children():

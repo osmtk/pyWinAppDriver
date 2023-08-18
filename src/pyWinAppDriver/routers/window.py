@@ -1,8 +1,7 @@
 from fastapi import APIRouter
+from pyWinAppDriver.var import Variable
 from pywinauto.controls.uia_controls import UIAElementInfo
 from pywinauto.controls.uiawrapper import UIAWrapper
-
-from pyWinAppDriver.var import Variable
 
 router = APIRouter()
 

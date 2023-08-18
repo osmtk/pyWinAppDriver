@@ -1,7 +1,6 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
-
-from pyWinAppDriver.util import find_elements, find_element_by_runtime_id, convert_runtime_id
+from pyWinAppDriver.util import convert_runtime_id, find_element_by_runtime_id, find_elements
 from pyWinAppDriver.var import Variable
 
 router = APIRouter()

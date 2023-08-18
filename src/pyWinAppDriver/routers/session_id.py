@@ -1,15 +1,10 @@
 import win32api
 from fastapi import APIRouter
-
+from pyWinAppDriver.routers import element, touch, window
+from pyWinAppDriver.util import find_elements, get_page_source
 from pyWinAppDriver.var import Variable
-from .element import router as element_router
-from pyWinAppDriver.util import get_page_source
-from .touch import router as touch_router
-from .window import router as window_router
 
-from pyWinAppDriver.util import find_elements, find_element_by_runtime_id, convert_runtime_id
 from .element import FindElement
-
 
 router = APIRouter()
 
@@ -42,8 +37,8 @@ def close_app():
 @router.get("/source")
 def page_source(session_id):
     status = 0
-    hwnd = Variable.active_session[session_id]
-    value = get_page_source(int(hwnd, 0))
+    window = Variable.active_session[session_id]
+    value = get_page_source(window.handle)
     return {"sessionId": session_id, "status": status, "value": value}
 
 
@@ -72,7 +67,7 @@ def double_click():
     raise Exception
 
 
-router.include_router(element_router, prefix="/element")
+router.include_router(element.router, prefix="/element")
 
 
 @router.post("/elements")
@@ -125,8 +120,8 @@ def title():
     raise Exception
 
 
-router.include_router(touch_router, prefix="/touch")
-router.include_router(window_router, prefix="/window")
+router.include_router(touch.router, prefix="/touch")
+router.include_router(window.router, prefix="/window")
 
 
 @router.get("/window_handle")
