@@ -7,7 +7,18 @@ app = FastAPI()
 
 @app.get("/status")
 def status():
-    raise Exception
+    return {
+        "build": {
+            "revision": "18001",
+            "time": "Tue Sep 18 18:35:38 2018",
+            "version": "1.1.1809",
+        },
+        "os": {
+            "arch": "amd64",
+            "name": "windows",
+            "version": "10.0.19045",
+        },
+    }
 
 
 app.include_router(session.router, prefix="/session")
@@ -15,7 +26,18 @@ app.include_router(session.router, prefix="/session")
 
 @app.get("/sessions")
 def sessions():
-    raise Exception
+    return {
+        "status": 0,
+        "value": [
+            {
+                "capabilities": {
+                    "appTopLevelWindow": "0x205d0",
+                    "platformName": "Windows",
+                },
+                "id": "A18DD7C6-F8B8-4333-A538-616544F47CE1",
+            },
+        ],
+    }
 
 
 if __name__ == "__main__":

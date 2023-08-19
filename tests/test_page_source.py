@@ -3,7 +3,7 @@ from typing import List, Optional
 from pydantic import BaseModel
 from pywinauto.controls.uia_controls import UIAElementInfo
 from pywinauto.controls.uiawrapper import UIAWrapper
-from pyWinAppDriver.util import get_page_source
+from pyWinAppDriver.dependencies import get_page_source
 
 if __name__ == "__main__":
     # app = Application(backend="uia").connect(title="電卓", timeout=10)

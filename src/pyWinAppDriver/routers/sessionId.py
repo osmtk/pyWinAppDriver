@@ -1,25 +1,28 @@
 import win32api
 from fastapi import APIRouter
-from pyWinAppDriver.routers import element, touch, window
-from pyWinAppDriver.util import find_elements, get_page_source
-from pyWinAppDriver.var import Variable
+from pyWinAppDriver.dependencies import find_elements, get_page_source
+from pyWinAppDriver.routers import appium_app, element, touch, window
+from pyWinAppDriver.session_manager import SessionManager
 
 from .element import FindElement
 
 router = APIRouter()
 
+router.include_router(appium_app.router, prefix="/appium/app")
+router.include_router(element.router, prefix="/element")
+router.include_router(touch.router, prefix="/touch")
+router.include_router(window.router, prefix="/window")
+
 
 @router.get("")
 def session(session_id: str):
-    raise Exception
+
+    return {"status":0,"value":{"appTopLevelWindow":"0x205d0","platformName":"Windows"}}
 
 
 @router.delete("")
 def quit(session_id: str):
-    try:
-        del Variable.active_session[session_id]
-    except KeyError:
-        pass
+    SessionManager.delete(session_id)
     return {"status": 0}
 
 
@@ -37,8 +40,8 @@ def close_app():
 @router.get("/source")
 def page_source(session_id):
     status = 0
-    window = Variable.active_session[session_id]
-    value = get_page_source(window.handle)
+    root = SessionManager.select(session_id)
+    value = get_page_source(root.handle)
     return {"sessionId": session_id, "status": status, "value": value}
 
 
@@ -67,12 +70,9 @@ def double_click():
     raise Exception
 
 
-router.include_router(element.router, prefix="/element")
-
-
 @router.post("/elements")
 def elements(session_id: str, data: FindElement):
-    root = Variable.active_session[session_id]
+    root = SessionManager.select(session_id)
     elements = find_elements(root, data.using, data.value)
     value = []
     for element in elements:
@@ -92,7 +92,7 @@ def keys():
 
 @router.get("/location")
 def location():
-    raise Exception
+    raise Exception  # server error
 
 
 @router.post("/moveto")
@@ -101,13 +101,13 @@ def move_to_element():
 
 
 @router.get("/orientation")
-def orientation():
-    raise Exception
+def orientation(session_id: str):
+    return {"sessionId": session_id,"status":0,"value":"LANDSCAPE"}
 
 
 @router.get("/screenshot")
-def screenshot():
-    raise Exception
+def screenshot(session_id: str):
+    return {"sessionId":session_id,"status":0,"value": "screenshot"}
 
 
 @router.post("/timeouts")
@@ -116,22 +116,18 @@ def timeouts():
 
 
 @router.get("/title")
-def title():
-    raise Exception
-
-
-router.include_router(touch.router, prefix="/touch")
-router.include_router(window.router, prefix="/window")
+def title(session_id: str):
+    return {"sessionId": session_id,"status":0,"value":"dist"}
 
 
 @router.get("/window_handle")
 def window_handle(session_id: str):
-    return Variable.active_session[session_id]
+    return {"sessionId": session_id,"status":0,"value":"0x000205D0"}
 
 
 @router.get("/window_handles")
-def window_handles():
-    raise Exception
+def window_handles(session_id: str):
+    raise {"sessionId": session_id,"status":0,"value":["0x000205D0","0x001F0586"]}
 
 
 @router.post("/execute")

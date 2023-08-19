@@ -1,7 +1,30 @@
+import ctypes
+import re
+
 from lxml import etree
 from pywinauto.controls.uia_controls import UIAElementInfo
 from pywinauto.controls.uiawrapper import UIAWrapper
 from pywinauto.uia_defines import NoPatternInterfaceError
+
+EnumWindows = ctypes.windll.user32.EnumWindows
+EnumWindowsProc = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_int, ctypes.POINTER(ctypes.c_int))
+GetWindowText = ctypes.windll.user32.GetWindowTextW
+GetWindowTextLength = ctypes.windll.user32.GetWindowTextLengthW
+
+def find_window_handle_by_regex(pattern):
+    hwnds = []
+
+    def foreach_window(hwnd, lParam):
+        length = GetWindowTextLength(hwnd)
+        buff = ctypes.create_unicode_buffer(length + 1)
+        GetWindowText(hwnd, buff, length + 1)
+        if re.match(pattern, buff.value):
+            hwnds.append(hwnd)
+        return True
+
+    EnumWindows(EnumWindowsProc(foreach_window), 0)
+    return hwnds[0] if hwnds else None
+
 
 ORIENTATION_TYPE = {
     0: "None",
@@ -115,7 +138,7 @@ def get_page_source(hwnd: int):
             "width": ctrl.rectangle().width(),  # todo
             "x": ctrl.rectangle().left,  # todo
             "y": ctrl.rectangle().top,  # todo
-            "IsAvailable": "",  # todo
+            "IsAvailable": ctrl.is_enabled(),  # Is this correct?
         }
         element_attributes = (
             "AcceleratorKey",
@@ -133,23 +156,45 @@ def get_page_source(hwnd: int):
             "ItemStatus",
             "ItemType",
             "Localized_ControlType",
-            "NativeWindowHandle",
             "Orientation",
             "ProcessId",
         )
         # _ needs casting
         additional_element_attributes = (
+            "AnnotationObjects",
+            "AnnotationTypes",
             "AriaProperties",
             "AriaRole",
-            "_BoundingRectangle",
-            "_ControlType",
-            "_ControllerFor",
-            "Culture",
-            "_DescribedBy",
-            "_FlowsTo",
+            "BoundingRectangle",
+            "CenterPoint",
+            "ClickablePoint",
+            "ControllerFor",
+            "ControlType",
+            "Culture",  # https://learn.microsoft.com/ja-jp/dotnet/api/system.globalization.cultureinfo?view=net-7.0&viewFallbackFrom=windowsdesktop-7.0
+            "DescribedBy",
+            "FillColor",
+            "FillType",
+            "FlowsFrom",
+            "FlowsTo",
+            "FullDescription",
             "IsDataValidForForm",
-            "_LabeledBy",
-            "_ProvidedDescription",
+            "IsDialog",
+            "IsPeripheral",
+            "LabeledBy",
+            "LandmarkType",
+            "Level",
+            "LiveSetting",
+            "LocalizedLandmarkType",
+            "NativeWindowHandle",
+            "OptimizeForVisualContent",
+            "OutlineColor",
+            "OutlineThickness"
+            "PositionInSet",
+            "ProviderDescription",
+            "Rotation",
+            "Size",
+            "SizeOfSet",
+            "VisualEffects",
         )
 
         for attr in element_attributes:

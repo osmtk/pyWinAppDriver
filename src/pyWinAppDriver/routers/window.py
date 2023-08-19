@@ -1,9 +1,12 @@
 from fastapi import APIRouter
-from pyWinAppDriver.var import Variable
+from pyWinAppDriver.routers import windowHandle
+from pyWinAppDriver.session_manager import SessionManager
 from pywinauto.controls.uia_controls import UIAElementInfo
 from pywinauto.controls.uiawrapper import UIAWrapper
 
 router = APIRouter()
+
+router.include_router(windowHandle.router, prefix="{window_handle")
 
 
 @router.delete("")
@@ -18,16 +21,14 @@ def post_window():
 
 @router.post("/maximize")
 def maximize(session_id: str):
-    hwnd = Variable.active_session[session_id]
-    UIAWrapper(UIAElementInfo(int(hwnd, 0))).maximize()
-    return
+    root = SessionManager.select(session_id)
+    UIAWrapper(UIAElementInfo(root.handle)).maximize()
 
 
 @router.post("/minimize")
 def minimize(session_id: str):  # additional
-    hwnd = Variable.active_session[session_id]
-    UIAWrapper(UIAElementInfo(int(hwnd, 0))).minimize()
-    return
+    root = SessionManager.select(session_id)
+    UIAWrapper(UIAElementInfo(root.handle)).minimize()
 
 
 @router.post("/size")
@@ -36,42 +37,10 @@ def window_size():
 
 
 @router.get("/size")
-def get_window_size():
-    raise Exception
-
-
-@router.post("/{window_handle}/size")
-def window_size():
-    raise Exception
-
-
-@router.get("/{window_handle}/size")
-def window_size():
-    raise Exception
-
-
-@router.post("/{window_handle}/position")
-def window_position():
-    raise Exception
-
-
-@router.get("/{window_handle}/position")
-def window_position():
-    raise Exception
-
-
-@router.get("/{window_handle}/maximize")
-def maximize(session_id: str, window_handle: str):
-    UIAWrapper(UIAElementInfo(int(window_handle, 0))).maximize()
-    return
-
-
-@router.get("/{window_handle}/minimize")
-def minimize(session_id: str, window_handle: str):  # additional
-    UIAWrapper(UIAElementInfo(int(window_handle, 0))).minimize()
-    return
+def get_window_size(session_id: str):
+    raise {"sessionId": session_id,"status":0,"value":{"height":634,"width":918}}
 
 
 @router.get("/current/position")
-def current_windows_position():  # no docs
-    raise Exception
+def current_windows_position(session_id: str):  # no docs
+    return {"sessionId": session_id,"status":0,"value":{"x":103,"y":1451}}
