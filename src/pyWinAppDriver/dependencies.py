@@ -11,6 +11,7 @@ EnumWindowsProc = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_int, ctypes.POINTER
 GetWindowText = ctypes.windll.user32.GetWindowTextW
 GetWindowTextLength = ctypes.windll.user32.GetWindowTextLengthW
 
+
 def find_window_handle_by_regex(pattern):
     hwnds = []
 
@@ -56,8 +57,7 @@ def xml_escape(text: str) -> str:
     return text
 
 
-def get_page_source(hwnd: int):
-
+def page_source(hwnd: int):
     def convert_iface_value(key, value):
         types = {
             # iface_expanded_collapse
@@ -124,14 +124,13 @@ def get_page_source(hwnd: int):
         return fn(value)
 
     def iter_elements(ctrl):
-
         control_type = ctrl.element_info.control_type
         attributes = {
-            'AutomationId': ctrl.automation_id(),
+            "AutomationId": ctrl.automation_id(),
             "ClassName": ctrl.class_name(),
-            'IsEnabled': ctrl.is_enabled(),
-            'IsKeyboardFocusable': ctrl.is_keyboard_focusable(),
-            'HasKeyboardFocus': ctrl.has_keyboard_focus(),
+            "IsEnabled": ctrl.is_enabled(),
+            "IsKeyboardFocusable": ctrl.is_keyboard_focusable(),
+            "HasKeyboardFocus": ctrl.has_keyboard_focus(),
             "Name": ctrl.window_text(),
             "RuntimeId": ".".join(map(str, ctrl.element_info.runtime_id)),
             "height": ctrl.rectangle().height(),  # todo
@@ -160,42 +159,6 @@ def get_page_source(hwnd: int):
             "ProcessId",
         )
         # _ needs casting
-        additional_element_attributes = (
-            "AnnotationObjects",
-            "AnnotationTypes",
-            "AriaProperties",
-            "AriaRole",
-            "BoundingRectangle",
-            "CenterPoint",
-            "ClickablePoint",
-            "ControllerFor",
-            "ControlType",
-            "Culture",  # https://learn.microsoft.com/ja-jp/dotnet/api/system.globalization.cultureinfo?view=net-7.0&viewFallbackFrom=windowsdesktop-7.0
-            "DescribedBy",
-            "FillColor",
-            "FillType",
-            "FlowsFrom",
-            "FlowsTo",
-            "FullDescription",
-            "IsDataValidForForm",
-            "IsDialog",
-            "IsPeripheral",
-            "LabeledBy",
-            "LandmarkType",
-            "Level",
-            "LiveSetting",
-            "LocalizedLandmarkType",
-            "NativeWindowHandle",
-            "OptimizeForVisualContent",
-            "OutlineColor",
-            "OutlineThickness"
-            "PositionInSet",
-            "ProviderDescription",
-            "Rotation",
-            "Size",
-            "SizeOfSet",
-            "VisualEffects",
-        )
 
         for attr in element_attributes:
             try:
@@ -217,22 +180,22 @@ def get_page_source(hwnd: int):
         for iface in ifaces:
             for current_attr in [attr for attr in dir(iface) if attr.startswith("Current")]:
                 val = getattr(iface, current_attr)
-                current_attr = current_attr.replace("Current", "")
-                attributes[current_attr] = convert_iface_value(current_attr, val)
+                attr = current_attr.replace("Current", "")
+                attributes[attr] = convert_iface_value(attr, val)
 
         attributes = {key: attributes[key] for key in sorted(attributes)}
 
         nonlocal xml_string
-        xml_string += f'<{control_type} '
+        xml_string += f"<{control_type} "
         for attr, val in attributes.items():
             xml_string += f'{attr}="{xml_escape(str(val))}" '
         if ctrl.children():
-            xml_string += '>'
+            xml_string += ">"
             for child in ctrl.children():
                 iter_elements(child)
-            xml_string += f'</{control_type}>'
+            xml_string += f"</{control_type}>"
         else:
-            xml_string += '/>'
+            xml_string += "/>"
 
     top_level_window = UIAWrapper(UIAElementInfo(hwnd))
     xml_string = '<?xml version="1.0" encoding="utf-16"?>'
@@ -249,9 +212,8 @@ def find_element_by_runtime_id(root: UIAWrapper, runtime_id) -> UIAWrapper:
     raise Exception
 
 
-def find_elements(root: UIAWrapper, using: str, value: str):
-    page_source = get_page_source(root.handle)
-    root = etree.fromstring(page_source.encode("utf16"))
+def find_elements_from_page_source(root: UIAWrapper, using: str, value: str) -> list:
+    root = etree.fromstring(page_source(root.handle).encode("utf16"))
     if using == "id":
         xpath = f'//*[@AutomationId="{value}"]'
     elif using == "accessibility id":
@@ -277,11 +239,11 @@ def convert_runtime_id(id: str):
 if __name__ == "__main__":
     # app = Application(backend="uia").connect(title="電卓", timeout=10)
     # hwnd = app.windows()[0]
-    hwnd = 0x1e03ea
+    hwnd = 0x1E03EA
 
     # root = UIAWrapper(UIAElementInfo(hwnd))
     # for i in root.descendants():
     #     print(i)
 
-    ret = get_page_source(hwnd)
+    ret = page_source(hwnd)
     print(ret)

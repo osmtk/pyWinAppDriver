@@ -1,12 +1,15 @@
 import uvicorn
 from fastapi import FastAPI
-from pyWinAppDriver.routers import session
+from pywinappdriver.routers import session
 
 app = FastAPI()
 
 
 @app.get("/status")
 def status():
+    """
+    https://www.w3.org/TR/webdriver/#status
+    """
     return {
         "build": {
             "revision": "18001",

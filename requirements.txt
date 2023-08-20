@@ -10,7 +10,7 @@ anyio==3.7.1
     # via
     #   starlette
     #   watchfiles
-click==8.1.6
+click==8.1.7
     # via uvicorn
 colorama==0.4.6
     # via
@@ -30,9 +30,11 @@ idna==3.4
     # via anyio
 lxml==4.9.3
     # via pyWinAppDriver (pyproject.toml)
-pydantic==2.1.1
+pillow==10.0.0
+    # via pyWinAppDriver (pyproject.toml)
+pydantic==2.2.1
     # via fastapi
-pydantic-core==2.4.0
+pydantic-core==2.6.1
     # via pydantic
 python-dotenv==1.0.0
     # via uvicorn

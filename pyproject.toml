@@ -21,13 +21,11 @@ dependencies = [
     "uvicorn[standard]",
     "pywinauto",
     "lxml",
+    "pillow",
 ]
 [project.optional-dependencies]
 dev = [
     "tox",
-    "black",
-    "ruff",
-    "mypy",
     "pytest",
     "Appium-Python-Client<2.0",
     "urllib3<2.0",
