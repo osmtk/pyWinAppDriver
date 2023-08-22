@@ -2,6 +2,8 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 from pywinauto.controls.hwndwrapper import HwndWrapper
 from pywinauto.controls.uia_controls import UIAElementInfo
+from pywinappdriver.utils import get_system_metrics
+
 
 router = APIRouter()
 
@@ -24,10 +26,14 @@ def set_window_size(session_id: str, window_handle: str, data: SetWindowSize):
 @router.get("/size")
 def get_window_size(session_id: str, window_handle: str):
     window = __get_window(window_handle)
+    metrics = get_system_metrics()
     return {
         "sessionId": session_id,
         "status": 0,
-        "value": {"height": window.rectangle().height(), "width": window.rectangle().width()},
+        "value": {
+            "height": window.client_rect().height() + metrics["border_height"],
+            "width": window.client_rect().width() + metrics["border_width"] * 2,
+        },
     }
 
 
@@ -45,10 +51,14 @@ def set_window_position(session_id: str, window_handle: str, data: SetWindowPosi
 @router.get("/position")
 def get_window_position(session_id: str, window_handle: str):
     element = __get_window(window_handle)
+    metrics = get_system_metrics()
     return {
         "sessionId": session_id,
         "status": 0,
-        "value": {"x": element.rectangle().left, "y": element.rectangle().top},
+        "value": {
+            "x": element.rectangle().left + metrics["frame_width"] - metrics["border_width"],
+            "y": element.rectangle().top,
+        },
     }
 
 

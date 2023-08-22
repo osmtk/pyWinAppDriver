@@ -1,6 +1,11 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
-from pywinappdriver.dependencies import convert_runtime_id, find_element_by_runtime_id, find_elements
+from pywinappdriver.dependencies import (
+    convert_runtime_id,
+    find_element_by_runtime_id,
+    find_elements_from_page_source,
+    get_attribute,
+)
 from pywinappdriver.session_manager import SessionManager
 from pywinappdriver.utils import image_to_base64
 from pywinauto.controls.uiawrapper import UIAWrapper
@@ -23,7 +28,7 @@ class FindElement(BaseModel):
 def find_element(session_id: str, data: FindElement):
     """https://www.w3.org/TR/webdriver/#dfn-find-element"""
     root = SessionManager.select(session_id).root
-    elements = find_elements(root, data.using, data.value)
+    elements = find_elements_from_page_source(root, data.using, data.value)
     element = elements[0]
     runtime_id = element.get("RuntimeId")
     return {"sessionId": data.sessionId, "status": 0, "value": {"ELEMENT": runtime_id}}
@@ -37,9 +42,9 @@ def active(session_id: str):
 
 @router.get("/{element_id}/attribute/{name}")
 def get_element_attribute(session_id: str, element_id: str, name: str):
-    "https://www.w3.org/TR/webdriver/#dfn-get-element-attribute"
+    """https://www.w3.org/TR/webdriver/#dfn-get-element-attribute"""
     element = __get_element(session_id, element_id)
-    return {"sessionId": session_id, "status": 0, "value": element.get(name)}
+    return {"sessionId": session_id, "status": 0, "value": get_attribute(element, name)}
 
 
 @router.post("/{element_id}/clear")
@@ -51,10 +56,6 @@ def element_clear(session_id: str, element_id: str):  # todo
 @router.post("/{element_id}/click")
 def element_click(session_id: str, element_id: str):
     """https://www.w3.org/TR/webdriver/#dfn-element-click"""
-    # root = SessionManager.select(session_id)
-    # runtime_id = convert_runtime_id(element_id)
-    # element = find_element_by_runtime_id(root, runtime_id)
-
     element = __get_element(session_id, element_id)
     element.click_input()
     return {"sessionId": session_id, "status": 0}
@@ -69,11 +70,7 @@ def is_element_displayed(session_id: str, element_id: str):
 def find_element_from_element(session_id: str, element_id: str, data: FindElement):
     """https://www.w3.org/TR/webdriver/#dfn-find-element-from-element"""
     context = __get_element(session_id, element_id)
-    element = find_elements(context, data.using, data.value)[0]
-    # root = SessionManager.select(session_id)
-    # context = find_element_by_runtime_id(root, convert_runtime_id(element_id))
-    # elements = find_elements(context, data.using, data.value)
-    # element = elements[0]
+    element = find_elements_from_page_source(context, data.using, data.value)[0]
     runtime_id = element.get("RuntimeId")
     return {"sessionId": data.sessionId, "status": 0, "value": {"ELEMENT": runtime_id}}
 
@@ -82,10 +79,7 @@ def find_element_from_element(session_id: str, element_id: str, data: FindElemen
 def find_elements_from_element(session_id: str, element_id: str, data: FindElement):
     """https://www.w3.org/TR/webdriver/#dfn-find-elements-from-element"""
     context = __get_element(session_id, element_id)
-    elements = find_elements(context, data.using, data.value)
-    # root = SessionManager.select(session_id)
-    # context = find_element_by_runtime_id(root, convert_runtime_id(element_id))
-    # elements = find_elements(context, data.using, data.value)
+    elements = find_elements_from_page_source(context, data.using, data.value)
     value = []
     for element in elements:
         value.append({"ELEMENT": element.get("RuntimeId")})
@@ -95,7 +89,8 @@ def find_elements_from_element(session_id: str, element_id: str, data: FindEleme
 @router.get("/{element_id}/enabled")
 def is_element_enabled(session_id: str, element_id: str):  # todo
     """https://www.w3.org/TR/webdriver/#dfn-is-element-enabled"""
-    return {"sessionId": session_id, "status": 0, "value": True}
+    element = __get_element(session_id, element_id)
+    return {"sessionId": session_id, "status": 0, "value": element.is_enabled()}
 
 
 @router.get("/{element_id}/equals/{other_id}")
@@ -111,8 +106,8 @@ def element_location(session_id: str, element_id: str):
         "sessionId": session_id,
         "status": 0,
         "value": {
-            "x": int(element.get("x")),
-            "y": int(element.get("y")),
+            "x": element.rectangle().left,
+            "y": element.rectangle().top,
         },
     }
 
@@ -124,8 +119,8 @@ def element_location_in_view(session_id: str, element_id: str):  # todo
         "sessionId": session_id,
         "status": 0,
         "value": {
-            "x": int(element.get("x")),
-            "y": int(element.get("y")),
+            "x": element.rectangle().left,
+            "y": element.rectangle().top,
         },
     }
 
@@ -133,7 +128,9 @@ def element_location_in_view(session_id: str, element_id: str):  # todo
 @router.get("/{element_id}/name")
 def get_element_tag_name(session_id: str, element_id: str):
     """https://www.w3.org/TR/webdriver/#dfn-get-element-tag-name"""
-    return {"sessionId": session_id, "status": 0, "value": "ControlType.Button"}
+    element = __get_element(session_id, element_id)
+    control_type = f"ControlType.{element.element_info.control_type}"
+    return {"sessionId": session_id, "status": 0, "value": control_type}
 
 
 @router.get("/{element_id}/screenshot")
@@ -158,8 +155,8 @@ def size(session_id: str, element_id: str):
         "sessionId": session_id,
         "status": 0,
         "value": {
-            "height": int(element.get("height")),
-            "width": int(element.get("width")),
+            "height": int(element.rectangle().height()),
+            "width": int(element.rectangle().width()),
         },
     }
 

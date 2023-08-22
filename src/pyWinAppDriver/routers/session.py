@@ -9,16 +9,16 @@ from pywinappdriver.dependencies import find_elements_from_page_source, find_win
 from pywinappdriver.mouse import click_back_button, click_forward_button
 from pywinappdriver.routers import element, touch, window
 from pywinappdriver.session_manager import SessionManager
-from pywinappdriver.utils import image_to_base64
+from pywinappdriver.utils import image_to_base64, execute_powershell_script
 from pywinauto import Application, mouse
 from pywinauto.controls.uiawrapper import UIAWrapper
 from pywinauto.uia_element_info import UIAElementInfo
 
 router = APIRouter()
 
-router.include_router(element.router, prefix="/element")
-router.include_router(touch.router, prefix="/touch")
-router.include_router(window.router, prefix="/window")
+router.include_router(element.router, prefix="/{session_id}/element")
+router.include_router(touch.router, prefix="/{session_id}/touch")
+router.include_router(window.router, prefix="/{session_id}/window")
 
 
 class Capabilities(BaseModel):
@@ -86,10 +86,9 @@ def delete_session(session_id: str):
 @router.get("/{session_id}/source")
 def get_page_source(session_id):
     """https://www.w3.org/TR/webdriver/#dfn-get-page-source"""
-    status = 0
     root = SessionManager.select(session_id).root
-    value = page_source(root.window_handle)
-    return {"sessionId": session_id, "status": status, "value": value}
+    value = page_source(root.handle)
+    return {"sessionId": session_id, "status": 0, "value": value}
 
 
 @router.post("/{session_id}/back")
@@ -212,8 +211,7 @@ class ExecuteScript(BaseModel):
 @router.post("/{session_id}/execute")
 def execute_script(session_id: str, data: ExecuteScript):
     """Execute PowerShell script"""
-    cmd = ["powershell", "-Command", data.script] + data.args
-    subprocess.run(cmd, capture_output=True, text=True, check=False)
+    execute_powershell_script(data.script, *data.args)
     return {"sessionId": session_id, "status": 0}
 
 

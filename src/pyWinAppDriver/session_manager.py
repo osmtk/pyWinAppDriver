@@ -1,7 +1,12 @@
 from dataclasses import dataclass
-from typing import Dict
+from typing import List, TypedDict, Dict, Union
 
 from pywinauto.controls.uiawrapper import UIAWrapper
+
+
+class SessionDict(TypedDict):
+    capabilities: Dict[str, Union[str, int]]
+    id: str
 
 
 @dataclass()
@@ -13,6 +18,12 @@ class Session:
     @property
     def window_handle(self):
         return self.root.handle
+
+    def asdict(self) -> SessionDict:
+        return SessionDict(
+            capabilities=self.capabilities,
+            id=self.session_id,
+        )
 
 
 class SessionManager:
@@ -32,3 +43,7 @@ class SessionManager:
     def delete(cls, session_id: str) -> None:
         if session_id in cls._session:
             del cls._session[session_id]
+
+    @classmethod
+    def all_sessions(cls) -> List[SessionDict]:
+        return [session.asdict() for session in cls._session.values()]

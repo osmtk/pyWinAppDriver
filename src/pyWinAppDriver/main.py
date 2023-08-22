@@ -1,6 +1,11 @@
+import json
+
 import uvicorn
 from fastapi import FastAPI
+
 from pywinappdriver.routers import session
+from pywinappdriver.session_manager import SessionManager
+from pywinappdriver.utils import execute_powershell_script
 
 app = FastAPI()
 
@@ -10,37 +15,35 @@ def status():
     """
     https://www.w3.org/TR/webdriver/#status
     """
-    return {
-        "build": {
-            "revision": "18001",
-            "time": "Tue Sep 18 18:35:38 2018",
-            "version": "1.1.1809",
-        },
-        "os": {
-            "arch": "amd64",
-            "name": "windows",
-            "version": "10.0.19045",
-        },
+    os_info_script = """
+    $arch = if ([Environment]::Is64BitOperatingSystem) { "amd64" } else { "x86" }
+    $osInfo = @{
+        arch = $arch
+        name = "windows"
+        version = (Get-CimInstance Win32_OperatingSystem).Version
     }
-
-
-app.include_router(session.router, prefix="/session")
+    $osInfo | ConvertTo-Json
+    """
+    os_info = json.loads(execute_powershell_script(os_info_script))
+    return {
+        "build": {  # todo
+            "revision": "1",
+            "time": "Sub Dec 31 12:00:0 2023",
+            "version": "0.1.0",
+        },
+        "os": os_info,
+    }
 
 
 @app.get("/sessions")
 def sessions():
     return {
         "status": 0,
-        "value": [
-            {
-                "capabilities": {
-                    "appTopLevelWindow": "0x205d0",
-                    "platformName": "Windows",
-                },
-                "id": "A18DD7C6-F8B8-4333-A538-616544F47CE1",
-            },
-        ],
+        "value": SessionManager.all_sessions(),
     }
+
+
+app.include_router(session.router, prefix="/session")
 
 
 if __name__ == "__main__":

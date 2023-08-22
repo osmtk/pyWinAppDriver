@@ -4,6 +4,7 @@ from pywinappdriver.routers import window_handle
 from pywinappdriver.session_manager import SessionManager
 from pywinauto.controls.hwndwrapper import HwndWrapper
 from pywinauto.controls.uia_controls import UIAElementInfo
+from pywinappdriver.utils import get_system_metrics
 
 router = APIRouter()
 
@@ -14,7 +15,7 @@ def __get_window(session_id: str) -> HwndWrapper:
     return HwndWrapper(UIAElementInfo(hwnd))
 
 
-@router.delete("")
+@router.get("")
 def get_window_handle(session_id: str):
     """https://www.w3.org/TR/webdriver/#dfn-get-window-handle"""
     SessionManager.select(session_id).window_handle
@@ -68,12 +69,13 @@ def window_size(session_id: str, data: SetWindowSize):
 @router.get("/size")
 def get_window_size(session_id: str):
     window = __get_window(session_id)
+    metrics = get_system_metrics()
     return {
         "sessionId": session_id,
         "status": 0,
         "value": {
-            "height": window.rectangle().height(),
-            "width": window.rectangle().width(),
+            "height": window.client_rect().height() + metrics["border_height"],
+            "width": window.client_rect().width() + metrics["border_width"] * 2,
         },
     }
 
@@ -81,21 +83,30 @@ def get_window_size(session_id: str):
 @router.get("/current/position")
 def current_windows_position(session_id: str):  # no docs
     window = __get_window(session_id)
-    return {"sessionId": session_id, "status": 0, "value": {"x": window.rectangle().left, "y": window.rectangle().top}}
+    metrics = get_system_metrics()
+    return {
+        "sessionId": session_id,
+        "status": 0,
+        "value": {
+            "x": window.rectangle().left + metrics["frame_width"] - metrics["border_width"],
+            "y": window.rectangle().top,
+        }
+    }
 
 
 @router.get("/rect")
 def get_window_rect(session_id: str):
     """https://www.w3.org/TR/webdriver/#dfn-get-window-rect"""
     window = __get_window(session_id)
+    metrics = get_system_metrics()
     return {
         "sessionId": session_id,
         "status": 0,
         "value": {
-            "x": window.rectangle().left,
+            "x": window.rectangle().left + metrics["frame_width"] - metrics["border_width"],
             "y": window.rectangle().top,
-            "height": window.rectangle().height(),
-            "width": window.rectangle().width(),
+            "height": window.client_rect().height() + metrics["border_height"],
+            "width": window.client_rect().width() + metrics["border_width"] * 2,
         },
     }
 

@@ -1,15 +1,113 @@
 import ctypes
 import re
+from typing import Dict, Any
 
 from lxml import etree
 from pywinauto.controls.uia_controls import UIAElementInfo
 from pywinauto.controls.uiawrapper import UIAWrapper
 from pywinauto.uia_defines import NoPatternInterfaceError
 
+from pywinappdriver.property_identifiers import (
+    AUTOMATION_ELEMENT_PROPIDS,
+    ORIENTATION_TYPE,
+    DOCK_POSITION,
+    EXPAND_COLLAPSE_STATE,
+    TOGGLE_STATE,
+    WINDOW_INTERACTION_STATE,
+    WINDOW_VISUAL_STATE,
+    CONTROL_TYPE,
+    lcid_to_locale_name,
+)
+
 EnumWindows = ctypes.windll.user32.EnumWindows
 EnumWindowsProc = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_int, ctypes.POINTER(ctypes.c_int))
 GetWindowText = ctypes.windll.user32.GetWindowTextW
 GetWindowTextLength = ctypes.windll.user32.GetWindowTextLengthW
+
+
+def get_attribute(control: UIAWrapper, name: str):
+    return get_attributes(control).get(name)
+
+
+def get_attributes(control: UIAWrapper):
+
+    def get_value_for_win_app_driver(ctrl):
+        return {
+            "height": ctrl.rectangle().height(),  # todo
+            "width": ctrl.rectangle().width(),  # todo
+            "x": ctrl.rectangle().left,  # todo
+            "y": ctrl.rectangle().top,  # todo
+            "IsAvailable": ctrl.is_enabled(),  # Is this correct?
+        }
+
+    def get_element_value(ctrl) -> Dict[str, Any]:
+        values = {}
+        for attr in AUTOMATION_ELEMENT_PROPIDS:
+            try:
+                val = getattr(ctrl.element_info.element, f"Current{attr}")
+                if any(attr.startswith(prefix) for prefix in ("Has", "Is", "Can")):
+                    val = bool(val)
+                if attr == "Orientation":
+                    val = ORIENTATION_TYPE[val]
+                values[attr] = val
+            except:
+                continue
+        return values
+
+    def get_iface_value(ctrl) -> Dict[str, Any]:
+        values = {}
+        ifaces = [a for a in dir(ctrl) if a.startswith("iface_")]
+        for i in ifaces:
+            try:
+                iface = getattr(ctrl, i)
+            except NoPatternInterfaceError:
+                continue
+            for current_key in [a for a in dir(iface) if a.startswith("Current")]:
+                value = getattr(iface, current_key)
+                key = current_key.replace("Current", "")
+                values[key] = value
+        return values
+
+    def convert_type(key, value):
+        if any(key.startswith(prefix) for prefix in ("Can", "Has", "Is", "Supported")):
+            return bool(value)
+        if key.endswith("Scrollable"):
+            return bool(value)
+        if key == "Orientation":
+            return ORIENTATION_TYPE.get(value)
+        if key == "DockPosition":
+            return DOCK_POSITION.get(value)
+        if key == "ToggleState":
+            return TOGGLE_STATE.get(value)
+        if key == "WindowInteractionState":
+            return WINDOW_INTERACTION_STATE.get(value)
+        if key == "WindowVisualState":
+            return WINDOW_VISUAL_STATE.get(value)
+        if key == "ExpandCollapseState":
+            return EXPAND_COLLAPSE_STATE.get(value)
+        if key == "SelectionContainer":
+            pass  # todo {?, ClassName, RuntimeId}
+        # Not supported by WinAppDriver
+        if key == "ControlType":
+            return CONTROL_TYPE[value]
+        if key == "Culture":
+            return lcid_to_locale_name(value)
+        if key == "ControllerFor":
+            pass
+        if key == "DescribedBy":
+            pass
+        if key == "BoundingRectangle":
+            pass
+        if key == "LabeledBy":
+            pass
+        return value
+
+    attributes = {}
+    attributes.update(get_element_value(control))
+    attributes.update(get_value_for_win_app_driver(control))
+    attributes.update(get_iface_value(control))
+    attributes.update({"RuntimeId": ".".join(map(str, control.element_info.runtime_id))})
+    return {k: convert_type(k, attributes[k]) for k in sorted(attributes) if attributes[k] is not None}
 
 
 def find_window_handle_by_regex(pattern):
@@ -27,27 +125,6 @@ def find_window_handle_by_regex(pattern):
     return hwnds[0] if hwnds else None
 
 
-ORIENTATION_TYPE = {
-    0: "None",
-    1: "Horizontal",
-    2: "Vertical",
-}
-
-WINDOW_INTERACTION_STATE = {
-    0: "Running",
-    1: "Closing",
-    2: "ReadyForUserInteraction",
-    3: "BlockedByModalWindow",
-    4: "NotResponding",
-}
-
-WINDOW_VISUAL_STATE = {
-    0: "Normal",
-    1: "Maximized",
-    2: "Minimized",
-}
-
-
 def xml_escape(text: str) -> str:
     text = text.replace("&", "&amp;")
     text = text.replace("<", "&lt;")
@@ -58,134 +135,12 @@ def xml_escape(text: str) -> str:
 
 
 def page_source(hwnd: int):
-    def convert_iface_value(key, value):
-        types = {
-            # iface_expanded_collapse
-            "ExpandCollapseState": bool,
-            # iface_grid
-            "ColumnCount": None,
-            "RowCount": None,
-            # iface_grid_item
-            "Column": None,
-            "ColumnSpan": None,
-            "ContainingGrid": None,
-            "Row": None,
-            "RowSpan": None,
-            # iface_range_value
-            "IsReadOnly": bool,
-            "LargeChange": None,
-            "Maximum": None,
-            "Minimum": None,
-            "SmallChange": None,
-            "Value": None,
-            # iface_selection
-            "CanSelectMultiple": bool,
-            "IsSelectionRequired": bool,
-            # iface_selection_item
-            "IsSelected": bool,
-            "SelectionContainer": None,  # todo {?, ClassName, RuntimeId}
-            # iface_scroll
-            "HorizontalScrollPercent": None,
-            "HorizontalViewSize": None,
-            "HorizontallyScrollable": bool,
-            "VerticalScrollPercent": None,
-            "VerticalViewSize": None,
-            "VerticallyScrollable": bool,
-            # iface_table
-            "RowOrColumnMajor": None,
-            # iface_text
-            "DocumentRange": None,
-            "SupportedTextSelection": bool,
-            # iface_toggle
-            "ToggleState": bool,
-            # iface_transform
-            "CanMove": bool,
-            "CanResize": bool,
-            "CanRotate": bool,
-            # iface_transform2
-            "CanZoom": bool,
-            "ZoomLevel": None,
-            "ZoomMaximum": None,
-            "ZoomMinimum": None,
-            # iface_value
-            # "IsReadOnly": bool,
-            # "Value": None,
-            # iface_window
-            "CanMaximize": bool,
-            "CanMinimize": bool,
-            "IsModal": bool,
-            "IsTopmost": bool,
-            "WindowInteractionState": lambda x: WINDOW_INTERACTION_STATE[x],
-            "WindowVisualState": lambda x: WINDOW_VISUAL_STATE[x],
-        }
-        fn = types.get(key)
-        if fn is None:
-            return value
-        return fn(value)
 
-    def iter_elements(ctrl):
-        control_type = ctrl.element_info.control_type
-        attributes = {
-            "AutomationId": ctrl.automation_id(),
-            "ClassName": ctrl.class_name(),
-            "IsEnabled": ctrl.is_enabled(),
-            "IsKeyboardFocusable": ctrl.is_keyboard_focusable(),
-            "HasKeyboardFocus": ctrl.has_keyboard_focus(),
-            "Name": ctrl.window_text(),
-            "RuntimeId": ".".join(map(str, ctrl.element_info.runtime_id)),
-            "height": ctrl.rectangle().height(),  # todo
-            "width": ctrl.rectangle().width(),  # todo
-            "x": ctrl.rectangle().left,  # todo
-            "y": ctrl.rectangle().top,  # todo
-            "IsAvailable": ctrl.is_enabled(),  # Is this correct?
-        }
-        element_attributes = (
-            "AcceleratorKey",
-            "AccessKey",
-            "FrameworkId",
-            "HasKeyboardFocus",
-            "HelpText",
-            "IsContentElement",
-            "IsControlElement",
-            "IsEnabled",
-            "IsKeyboardFocusable",
-            "IsOffscreen",
-            "IsPassword",
-            "IsRequiredForForm",
-            "ItemStatus",
-            "ItemType",
-            "Localized_ControlType",
-            "Orientation",
-            "ProcessId",
-        )
-        # _ needs casting
-
-        for attr in element_attributes:
-            try:
-                val = getattr(ctrl.element_info.element, f"Current{attr}")
-                if any(attr.startswith(prefix) for prefix in ("Has", "Is", "Can")):
-                    val = bool(val)
-                if attr == "Orientation":
-                    val = ORIENTATION_TYPE[val]
-                attributes[attr] = val
-            except:
-                pass
-
-        ifaces = []
-        for iface in [attr for attr in dir(ctrl) if attr.startswith("iface_")]:
-            try:
-                ifaces.append(getattr(ctrl, iface))
-            except NoPatternInterfaceError:
-                pass
-        for iface in ifaces:
-            for current_attr in [attr for attr in dir(iface) if attr.startswith("Current")]:
-                val = getattr(iface, current_attr)
-                attr = current_attr.replace("Current", "")
-                attributes[attr] = convert_iface_value(attr, val)
-
-        attributes = {key: attributes[key] for key in sorted(attributes)}
+    def iter_elements(ctrl, top_level_window: bool = False):
 
         nonlocal xml_string
+        attributes = get_attributes(ctrl)
+        control_type = attributes["ControlType"]
         xml_string += f"<{control_type} "
         for attr, val in attributes.items():
             xml_string += f'{attr}="{xml_escape(str(val))}" '
@@ -199,7 +154,7 @@ def page_source(hwnd: int):
 
     top_level_window = UIAWrapper(UIAElementInfo(hwnd))
     xml_string = '<?xml version="1.0" encoding="utf-16"?>'
-    iter_elements(top_level_window)
+    iter_elements(top_level_window, top_level_window=True)
     return xml_string
 
 
@@ -234,16 +189,3 @@ def find_elements_from_page_source(root: UIAWrapper, using: str, value: str) -> 
 
 def convert_runtime_id(id: str):
     return tuple(map(int, id.split(".")))
-
-
-if __name__ == "__main__":
-    # app = Application(backend="uia").connect(title="電卓", timeout=10)
-    # hwnd = app.windows()[0]
-    hwnd = 0x1E03EA
-
-    # root = UIAWrapper(UIAElementInfo(hwnd))
-    # for i in root.descendants():
-    #     print(i)
-
-    ret = page_source(hwnd)
-    print(ret)
