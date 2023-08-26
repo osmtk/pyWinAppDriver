@@ -2,9 +2,9 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 from pywinappdriver.routers import window_handle
 from pywinappdriver.session_manager import SessionManager
+from pywinappdriver.utils import get_system_metrics
 from pywinauto.controls.hwndwrapper import HwndWrapper
 from pywinauto.controls.uia_controls import UIAElementInfo
-from pywinappdriver.utils import get_system_metrics
 
 router = APIRouter()
 
@@ -90,7 +90,7 @@ def current_windows_position(session_id: str):  # no docs
         "value": {
             "x": window.rectangle().left + metrics["frame_width"] - metrics["border_width"],
             "y": window.rectangle().top,
-        }
+        },
     }
 
 

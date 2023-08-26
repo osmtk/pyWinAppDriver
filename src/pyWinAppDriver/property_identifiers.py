@@ -29,7 +29,7 @@ AUTOMATION_ELEMENT_PROPIDS = (
     "DescribedBy",
     "FillColor",
     "FillType",
-    "FlowsFrom"
+    "FlowsFrom",
     "FlowsTo",
     "FrameworkId",
     "FullDescription",
@@ -62,14 +62,14 @@ AUTOMATION_ELEMENT_PROPIDS = (
     "OutlineThickness",
     "PositionInSet",
     "ProcessId",
-    "ProviderDescription"
+    "ProviderDescription",
     "Rotation",
     "RuntimeId",
     "Size",
     "SizeOfSet",
     "VisualEffects",
 )
-CONTROL_PATTERN_PROPIDS = (
+CONTROL_PATTERN_PROPIDS = (  # Used for compatibility with MS WinAppDriver
     "ExpandCollapseState",
     "CanMaximize",
     "CanMinimize",
@@ -132,7 +132,7 @@ CONTROL_TYPE = control_types = {
     50037: "TitleBar",
     50038: "Separator",
     50039: "SemanticZoom",
-    50040: "AppBar"
+    50040: "AppBar",
 }
 
 

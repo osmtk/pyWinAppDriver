@@ -1,24 +1,23 @@
 import ctypes
 import re
-from typing import Dict, Any
+from typing import Any, Dict
 
 from lxml import etree
-from pywinauto.controls.uia_controls import UIAElementInfo
-from pywinauto.controls.uiawrapper import UIAWrapper
-from pywinauto.uia_defines import NoPatternInterfaceError
-
 from pywinappdriver.property_identifiers import (
     AUTOMATION_ELEMENT_PROPIDS,
     CONTROL_PATTERN_PROPIDS,
-    ORIENTATION_TYPE,
+    CONTROL_TYPE,
     DOCK_POSITION,
     EXPAND_COLLAPSE_STATE,
+    ORIENTATION_TYPE,
     TOGGLE_STATE,
     WINDOW_INTERACTION_STATE,
     WINDOW_VISUAL_STATE,
-    CONTROL_TYPE,
     lcid_to_locale_name,
 )
+from pywinauto.controls.uia_controls import UIAElementInfo
+from pywinauto.controls.uiawrapper import UIAWrapper
+from pywinauto.uia_defines import NoPatternInterfaceError
 
 EnumWindows = ctypes.windll.user32.EnumWindows
 EnumWindowsProc = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_int, ctypes.POINTER(ctypes.c_int))
@@ -42,7 +41,6 @@ def get_attribute(control: UIAWrapper, name: str):
 
 
 def get_attributes(control: UIAWrapper, origin=(0, 0)):
-
     def get_value_for_win_app_driver(ctrl, trim_margin: bool) -> Dict[str, Any]:
         window_margin = 7 if trim_margin else 0  # todo Is this constant?
         return {
@@ -50,7 +48,6 @@ def get_attributes(control: UIAWrapper, origin=(0, 0)):
             "y": ctrl.rectangle().top - origin[1],
             "height": ctrl.rectangle().height() - window_margin,
             "width": ctrl.rectangle().width() - window_margin * 2,
-            "IsAvailable": ctrl.is_enabled(),  # Is this correct?
         }
 
     def get_element_value(ctrl) -> Dict[str, Any]:
@@ -70,15 +67,23 @@ def get_attributes(control: UIAWrapper, origin=(0, 0)):
                 iface = getattr(ctrl, i)
             except NoPatternInterfaceError:
                 continue
+            if i == "iface_selection":
+                values["Selection"] = iface.GetCurrentSelection()
             for current_key in [a for a in dir(iface) if a.startswith("Current")]:
                 value = getattr(iface, current_key)
                 key = current_key.replace("Current", "")
                 values[key] = value
         return values
 
-    def convert_type(key, value):
+    def is_available(props):
+        """Whether there is a value to get from the control pattern property. (for compatibility with WinAppDriver)"""
+        for k in props:
+            if k in CONTROL_PATTERN_PROPIDS:
+                return True
+        return None
 
-        def __iui_automation_element_value(element):
+    def convert_type(key: str, value: Any):
+        def get_iui_automation_element(element):
             try:
                 name = element.CurrentName
             except ValueError:
@@ -91,10 +96,7 @@ def get_attributes(control: UIAWrapper, origin=(0, 0)):
                 runtime_id = element.GetRuntimeId()
             except ValueError:
                 runtime_id = ()
-            return f"{{{name}, {class_name}, {'.'.join(map(str, runtime_id))}}}"
-
-        def get_iui_automation_element(element):
-            el = __iui_automation_element_value(element)
+            el = f"{{{name}, {class_name}, {runtime_id_to_str(runtime_id)}}}"
             if el == "{, , }":
                 return None
             return el
@@ -102,9 +104,15 @@ def get_attributes(control: UIAWrapper, origin=(0, 0)):
         def get_iui_automation_element_array(element_array):
             length = int(element_array.Length)
             if length:
-                array = [__iui_automation_element_value(element_array.GetElement(i)) for i in range(length)]
-                if any(map(lambda x: x != "{, , }", array)):
-                    return ", ".join(array)
+                array = []
+                for i in range(length):
+                    try:
+                        runtime_id = element_array.GetElement(i).GetRuntimeId()
+                    except ValueError:
+                        runtime_id = ()
+                    array.append(runtime_id)
+                if any(array):
+                    return ", ".join(map(runtime_id_to_str, array))
             return None
 
         def get_rect(rect):
@@ -134,7 +142,7 @@ def get_attributes(control: UIAWrapper, origin=(0, 0)):
             return EXPAND_COLLAPSE_STATE.get(value)
         if key in ("ContainingGrid", "SelectionContainer", "LabeledBy"):
             return get_iui_automation_element(value)
-        if key in ("ControllerFor", "DescribedBy"):
+        if key in ("ControllerFor", "DescribedBy", "Selection"):
             return get_iui_automation_element_array(value)
         if key in "BoundingRectangle":
             return get_rect(value)
@@ -152,6 +160,8 @@ def get_attributes(control: UIAWrapper, origin=(0, 0)):
     attributes.update(get_iface_value(control))
     attributes.update(get_value_for_win_app_driver(control, bool(attributes.get("CanResize"))))
     attributes = {k: convert_type(k, attributes[k]) for k in attributes}
+    if attributes["ControlType"] != "Custom":
+        attributes.update({"IsAvailable": is_available(attributes)})
     attributes = ms_compatible_sort(attributes)  # todo temp
     return {k: v for k, v in attributes.items() if v is not None}
 
@@ -185,9 +195,7 @@ def runtime_id_tuple_to_str(runtime_id):
 
 
 def page_source(hwnd: int):
-
     def iter_elements(ctrl, top_level: bool = False):
-
         nonlocal xml_string
         nonlocal origin
         attributes = get_attributes(ctrl, origin)
@@ -196,16 +204,16 @@ def page_source(hwnd: int):
             attributes["x"], attributes["y"] = 0, 0
 
         control_type = attributes["ControlType"]
-        xml_string += f"<{control_type} "
+        xml_string += f"<{control_type}"
         for attr, val in attributes.items():
-            xml_string += f'{attr}="{xml_escape(str(val))}" '
+            xml_string += f' {attr}="{xml_escape(str(val))}"'
         if ctrl.children():
             xml_string += ">"
             for child in ctrl.children():
                 iter_elements(child)
             xml_string += f"</{control_type}>"
         else:
-            xml_string += "/>"
+            xml_string += " />"
 
     top_level_window = UIAWrapper(UIAElementInfo(hwnd))
     xml_string = '<?xml version="1.0" encoding="utf-16"?>'
@@ -243,5 +251,9 @@ def find_elements_from_page_source(root: UIAWrapper, using: str, value: str) -> 
     return found_elements
 
 
-def convert_runtime_id(id: str):
+def runtime_id_to_str(runtime_id):
+    return ".".join(map(str, runtime_id))
+
+
+def runtime_id_from_str(id: str):
     return tuple(map(int, id.split(".")))

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, TypedDict, Dict, Union
+from typing import Dict, List, TypedDict, Union
 
 from pywinauto.controls.uiawrapper import UIAWrapper
 

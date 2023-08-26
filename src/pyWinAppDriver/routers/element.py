@@ -1,10 +1,10 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 from pywinappdriver.dependencies import (
-    convert_runtime_id,
     find_element_by_runtime_id,
     find_elements_from_page_source,
     get_attribute,
+    runtime_id_from_str,
 )
 from pywinappdriver.session_manager import SessionManager
 from pywinappdriver.utils import image_to_base64
@@ -15,7 +15,7 @@ router = APIRouter()
 
 def __get_element(session_id, element_id) -> UIAWrapper:
     root = SessionManager.select(session_id).root
-    return find_element_by_runtime_id(root, convert_runtime_id(element_id))
+    return find_element_by_runtime_id(root, runtime_id_from_str(element_id))
 
 
 class FindElement(BaseModel):

@@ -2,7 +2,6 @@ import json
 
 import uvicorn
 from fastapi import FastAPI
-
 from pywinappdriver.routers import session
 from pywinappdriver.session_manager import SessionManager
 from pywinappdriver.utils import execute_powershell_script

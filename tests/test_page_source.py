@@ -63,5 +63,5 @@ class TestPageSource:
             for prop in prop_to_remove:
                 py_page_source = re.sub(rf' {prop}=".*?"', "", py_page_source)
             f.write(py_page_source)
-        # assert py_page_source == ms_page_source
+        assert py_page_source == ms_page_source
 

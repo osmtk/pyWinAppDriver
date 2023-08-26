@@ -1,9 +1,8 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
+from pywinappdriver.utils import get_system_metrics
 from pywinauto.controls.hwndwrapper import HwndWrapper
 from pywinauto.controls.uia_controls import UIAElementInfo
-from pywinappdriver.utils import get_system_metrics
-
 
 router = APIRouter()
 

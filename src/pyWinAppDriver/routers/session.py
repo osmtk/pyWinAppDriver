@@ -1,4 +1,3 @@
-import subprocess
 import uuid
 from typing import List, Optional
 
@@ -9,7 +8,7 @@ from pywinappdriver.dependencies import find_elements_from_page_source, find_win
 from pywinappdriver.mouse import click_back_button, click_forward_button
 from pywinappdriver.routers import element, touch, window
 from pywinappdriver.session_manager import SessionManager
-from pywinappdriver.utils import image_to_base64, execute_powershell_script
+from pywinappdriver.utils import execute_powershell_script, image_to_base64
 from pywinauto import Application, mouse
 from pywinauto.controls.uiawrapper import UIAWrapper
 from pywinauto.uia_element_info import UIAElementInfo
