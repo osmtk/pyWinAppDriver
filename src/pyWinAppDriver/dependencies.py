@@ -9,6 +9,7 @@ from pywinauto.uia_defines import NoPatternInterfaceError
 
 from pywinappdriver.property_identifiers import (
     AUTOMATION_ELEMENT_PROPIDS,
+    CONTROL_PATTERN_PROPIDS,
     ORIENTATION_TYPE,
     DOCK_POSITION,
     EXPAND_COLLAPSE_STATE,
@@ -25,18 +26,30 @@ GetWindowText = ctypes.windll.user32.GetWindowTextW
 GetWindowTextLength = ctypes.windll.user32.GetWindowTextLengthW
 
 
+def ms_compatible_sort(props) -> Dict[str, Any]:
+    order = []
+    order.extend(AUTOMATION_ELEMENT_PROPIDS)
+    order.extend(["x", "y", "width", "height"])
+    order.extend(CONTROL_PATTERN_PROPIDS)
+    order.extend(["IsAvailable"])
+    sorted_props = {key: props.get(key) for key in order}
+    sorted_props.update(props)
+    return sorted_props
+
+
 def get_attribute(control: UIAWrapper, name: str):
     return get_attributes(control).get(name)
 
 
-def get_attributes(control: UIAWrapper):
+def get_attributes(control: UIAWrapper, origin=(0, 0)):
 
-    def get_value_for_win_app_driver(ctrl):
+    def get_value_for_win_app_driver(ctrl, trim_margin: bool) -> Dict[str, Any]:
+        window_margin = 7 if trim_margin else 0  # todo Is this constant?
         return {
-            "height": ctrl.rectangle().height(),  # todo
-            "width": ctrl.rectangle().width(),  # todo
-            "x": ctrl.rectangle().left,  # todo
-            "y": ctrl.rectangle().top,  # todo
+            "x": ctrl.rectangle().left + window_margin - origin[0],
+            "y": ctrl.rectangle().top - origin[1],
+            "height": ctrl.rectangle().height() - window_margin,
+            "width": ctrl.rectangle().width() - window_margin * 2,
             "IsAvailable": ctrl.is_enabled(),  # Is this correct?
         }
 
@@ -44,13 +57,8 @@ def get_attributes(control: UIAWrapper):
         values = {}
         for attr in AUTOMATION_ELEMENT_PROPIDS:
             try:
-                val = getattr(ctrl.element_info.element, f"Current{attr}")
-                if any(attr.startswith(prefix) for prefix in ("Has", "Is", "Can")):
-                    val = bool(val)
-                if attr == "Orientation":
-                    val = ORIENTATION_TYPE[val]
-                values[attr] = val
-            except:
+                values[attr] = getattr(ctrl.element_info.element, f"Current{attr}")
+            except AttributeError:
                 continue
         return values
 
@@ -69,10 +77,49 @@ def get_attributes(control: UIAWrapper):
         return values
 
     def convert_type(key, value):
+
+        def __iui_automation_element_value(element):
+            try:
+                name = element.CurrentName
+            except ValueError:
+                name = ""
+            try:
+                class_name = element.CurrentClassName
+            except ValueError:
+                class_name = ""
+            try:
+                runtime_id = element.GetRuntimeId()
+            except ValueError:
+                runtime_id = ()
+            return f"{{{name}, {class_name}, {'.'.join(map(str, runtime_id))}}}"
+
+        def get_iui_automation_element(element):
+            el = __iui_automation_element_value(element)
+            if el == "{, , }":
+                return None
+            return el
+
+        def get_iui_automation_element_array(element_array):
+            length = int(element_array.Length)
+            if length:
+                array = [__iui_automation_element_value(element_array.GetElement(i)) for i in range(length)]
+                if any(map(lambda x: x != "{, , }", array)):
+                    return ", ".join(array)
+            return None
+
+        def get_rect(rect):
+            if any([rect.left, rect.top, rect.right, rect.bottom]):
+                return f"{{l:{rect.left} t:{rect.top} r:{rect.right} b:{rect.bottom}}}"
+            return None
+
         if any(key.startswith(prefix) for prefix in ("Can", "Has", "Is", "Supported")):
             return bool(value)
         if key.endswith("Scrollable"):
             return bool(value)
+        if key in ("HorizontalScrollPercent", "VerticalScrollPercent", "HorizontalViewSize", "VerticalViewSize"):
+            return int(value)
+        if key == "RuntimeId":
+            return ".".join(map(str, value))
         if key == "Orientation":
             return ORIENTATION_TYPE.get(value)
         if key == "DockPosition":
@@ -85,29 +132,28 @@ def get_attributes(control: UIAWrapper):
             return WINDOW_VISUAL_STATE.get(value)
         if key == "ExpandCollapseState":
             return EXPAND_COLLAPSE_STATE.get(value)
-        if key == "SelectionContainer":
-            pass  # todo {?, ClassName, RuntimeId}
-        # Not supported by WinAppDriver
+        if key in ("ContainingGrid", "SelectionContainer", "LabeledBy"):
+            return get_iui_automation_element(value)
+        if key in ("ControllerFor", "DescribedBy"):
+            return get_iui_automation_element_array(value)
+        if key in "BoundingRectangle":
+            return get_rect(value)
         if key == "ControlType":
             return CONTROL_TYPE[value]
         if key == "Culture":
             return lcid_to_locale_name(value)
-        if key == "ControllerFor":
-            pass
-        if key == "DescribedBy":
-            pass
-        if key == "BoundingRectangle":
-            pass
-        if key == "LabeledBy":
-            pass
+        if key == "Selection":
+            return value  # todo retrieve this
         return value
 
     attributes = {}
     attributes.update(get_element_value(control))
-    attributes.update(get_value_for_win_app_driver(control))
+    attributes.update({"RuntimeId": control.element_info.runtime_id})
     attributes.update(get_iface_value(control))
-    attributes.update({"RuntimeId": ".".join(map(str, control.element_info.runtime_id))})
-    return {k: convert_type(k, attributes[k]) for k in sorted(attributes) if attributes[k] is not None}
+    attributes.update(get_value_for_win_app_driver(control, bool(attributes.get("CanResize"))))
+    attributes = {k: convert_type(k, attributes[k]) for k in attributes}
+    attributes = ms_compatible_sort(attributes)  # todo temp
+    return {k: v for k, v in attributes.items() if v is not None}
 
 
 def find_window_handle_by_regex(pattern):
@@ -134,12 +180,21 @@ def xml_escape(text: str) -> str:
     return text
 
 
+def runtime_id_tuple_to_str(runtime_id):
+    return ".".join(map(str, runtime_id))
+
+
 def page_source(hwnd: int):
 
-    def iter_elements(ctrl, top_level_window: bool = False):
+    def iter_elements(ctrl, top_level: bool = False):
 
         nonlocal xml_string
-        attributes = get_attributes(ctrl)
+        nonlocal origin
+        attributes = get_attributes(ctrl, origin)
+        if top_level:
+            origin = (attributes["x"], attributes["y"])
+            attributes["x"], attributes["y"] = 0, 0
+
         control_type = attributes["ControlType"]
         xml_string += f"<{control_type} "
         for attr, val in attributes.items():
@@ -154,7 +209,8 @@ def page_source(hwnd: int):
 
     top_level_window = UIAWrapper(UIAElementInfo(hwnd))
     xml_string = '<?xml version="1.0" encoding="utf-16"?>'
-    iter_elements(top_level_window, top_level_window=True)
+    origin = (0, 0)
+    iter_elements(top_level_window, top_level=True)
     return xml_string
 
 

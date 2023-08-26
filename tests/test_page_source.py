@@ -1,3 +1,5 @@
+import re
+
 import pytest
 
 from appium import webdriver
@@ -15,6 +17,7 @@ class TestPageSource:
         caps = {
             "platformName": "Windows",
             "appTopLevelWindow": hex(handle),
+            # "app": "Root",
         }
         request.cls.ms = webdriver.Remote(
             command_executor='http://127.0.0.1:4723',
@@ -44,6 +47,21 @@ class TestPageSource:
             f.write(ms_page_source)
         with open("py_sample.xml", "w", encoding="utf8") as f:
             py_page_source = self.py.page_source
+            prop_to_remove = (
+                "AriaProperties",
+                "AriaRole",
+                "BoundingRectangle",
+                "ControlType",
+                "Culture",
+                "IsDataValidForForm",
+                "NativeWindowHandle",
+                "IsReadOnly",
+                "CanSelectMultiple",
+                "IsSelectionRequired",
+                "Value",
+            )
+            for prop in prop_to_remove:
+                py_page_source = re.sub(rf' {prop}=".*?"', "", py_page_source)
             f.write(py_page_source)
         # assert py_page_source == ms_page_source
 

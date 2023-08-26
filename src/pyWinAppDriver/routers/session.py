@@ -56,7 +56,7 @@ def new_session(data: Session):
     value = {"platformName": platform_name}
     if app:
         if app.lower() == "root":
-            pass
+            pass  # todo
         raise Exception
     elif app_top_level_window:
         hwnd = app_top_level_window

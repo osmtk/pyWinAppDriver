@@ -1,9 +1,8 @@
 import ctypes
 
 
-# Automation element property
-# CULTURE
 def lcid_to_locale_name(lcid: int) -> str:
+    """Convert culture value"""
     locale_name_max_length = 85
     buf = ctypes.create_unicode_buffer(locale_name_max_length)
     result = ctypes.windll.kernel32.LCIDToLocaleName(lcid, buf, locale_name_max_length, 0)
@@ -69,6 +68,27 @@ AUTOMATION_ELEMENT_PROPIDS = (
     "Size",
     "SizeOfSet",
     "VisualEffects",
+)
+CONTROL_PATTERN_PROPIDS = (
+    "ExpandCollapseState",
+    "CanMaximize",
+    "CanMinimize",
+    "IsModal",
+    "WindowVisualState",
+    "WindowInteractionState",
+    "IsTopmost",
+    "CanRotate",
+    "CanResize",
+    "CanMove",
+    "Selection",
+    "HorizontallyScrollable",
+    "VerticallyScrollable",
+    "HorizontalScrollPercent",
+    "VerticalScrollPercent",
+    "HorizontalViewSize",
+    "VerticalViewSize",
+    "IsSelected",
+    "SelectionContainer",
 )
 
 CONTROL_TYPE = control_types = {
